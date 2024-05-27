@@ -363,6 +363,7 @@ pub const fn memory_gas(num_words: u64) -> u64 {
 
 /// Initial gas that is deducted for transaction to be included.
 /// Initial gas contains initial stipend gas, gas for access list and input data.
+#[cfg(not(feature = "iotex"))]
 pub fn validate_initial_tx_gas(
     spec_id: SpecId,
     input: &[u8],
@@ -415,4 +416,31 @@ pub fn validate_initial_tx_gas(
     }
 
     initial_gas
+}
+
+/// Initial gas that is deducted for transaction to be included.
+/// Initial gas contains initial stipend gas, gas for access list and input data.
+#[cfg(feature = "iotex")]
+pub fn validate_initial_tx_gas(
+    spec_id: SpecId,
+    input: &[u8],
+    is_create: bool,
+    access_list: &[AccessListItem],
+    authorization_list_num: u64,
+) -> u64 {
+    let (base_gas, payload_gas, payload_size) = (10000, 100, input.len() as u64);
+    let intrinsic_gas = base_gas + payload_gas * payload_size;
+    if access_list.is_empty() {
+        return intrinsic_gas;
+    }
+
+    let (address_gas, storage_gas) = (2400, 1900);
+    let mut gas = intrinsic_gas + access_list.len() as u64 * address_gas;
+    gas += access_list
+        .iter()
+        .map(|(_, slots)| slots.len() as u64)
+        .sum::<u64>()
+        * storage_gas;
+
+    gas
 }

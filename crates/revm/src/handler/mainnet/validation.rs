@@ -49,13 +49,21 @@ pub fn validate_initial_tx_gas<SPEC: Spec, DB: Database>(
         .map(|l| l.len() as u64)
         .unwrap_or_default();
 
-    let initial_gas_spend = gas::validate_initial_tx_gas(
+    let mut initial_gas_spend = gas::validate_initial_tx_gas(
         SPEC::SPEC_ID,
         input,
         is_create,
         access_list,
         authorization_list_num,
     );
+
+    #[cfg(feature = "iotex")]
+    {
+        // revm cannot recognize iotex governance txs which will result in overestimation of gas_spend.
+        if initial_gas_spend > env.tx.gas_limit {
+            initial_gas_spend = gas::validate_initial_tx_gas(SPEC::SPEC_ID, &[], false, &[], 0);
+        }
+    }
 
     // Additional check to see if limit is big enough to cover initial gas.
     if initial_gas_spend > env.tx.gas_limit {
